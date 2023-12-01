@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Download App</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.2/dist/tailwind.min.css" rel="stylesheet">
+    <script>
+        var socket = null;
+        var init_count = 0;
+
+        async function init() {
+            if (init_count) {
+                alert("Already connected.");
+                return;
+            }
+            alert("Connected to server.");
+            var username = document.getElementById('username').value;
+            setInterval(fetchDownloads, 1000);
+            fetchDownloads();
+            socket = new WebSocket("wss://" + window.location.host + "/ws/" + username);
+
+            socket.onmessage = function (event) {
+                var data = JSON.parse(event.data);
+                var card = document.getElementById('card-' + data.url);
+                var progressBar = document.getElementById('progress-' + data.url);
+                var percentageElement = document.getElementById('percentage-' + data.url);
+                progressBar.style.width = data.progress + '%';
+                percentageElement.innerText = data.progress + '%';
+
+                if (data.progress == '100') {
+                    percentageElement.style.display = 'none';
+                    progressBar.parentElement.style.display = 'none';
+                    card.closeButton.style.display = 'block';
+                    card.cancelButton.style.display = 'none';
+                }
+            }
+            init_count += 1;
+        }
+
+        async function fetchDownloads() {
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+            var auth = "Basic " + btoa(username + ":" + password);
+
+            var response = await fetch('/downloads/', {
+                method: 'GET',
+                headers: {
+                    'Authorization': auth
+                }
+            });
+            if (!response.ok) {
+                var data = await response.json();
+                alert('Could not authenticate: ' + data.detail);
+                return;
+            }
+
+            var data = await response.json();
+            updateCards(data);
+        }
+
+        function updateCards(data) {
+            var cards = document.getElementsByClassName("downloadCard")
+            var cardsArray = Array.from(cards);
+            cardsArray.forEach(function (card) {
+                var url = card.id.replace('card-', '');
+                if (data.in_progress.includes(url)){
+                } else if (data.completed.includes(url)) {
+                    console.log("Client: Completed: " + url);
+                    createDownloadCard(url, true);
+                } else {
+                    console.log("Client: Remove: " + url);
+                    removeCard(url);
+                }
+            });
+            data.in_progress.forEach(function (url) {
+                if ( document.getElementById('card-' + url) == null ) {
+                    console.log("Server: New: " + url);
+                    createDownloadCard(url);
+                }
+            });
+            data.completed.forEach(function (url) {
+                if ( document.getElementById('card-' + url) == null ) {
+                    console.log("Server: Completed: " + url);
+                    createDownloadCard(url, true);
+                }
+            });
+        }
+
+        function removeCard(url) {
+            var card = document.getElementById('card-' + url);
+            if ( card ) {
+                card.parentNode.removeChild(card);
+            }
+        }
+
+        async function cancelDownload(url) {
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+            var auth = "Basic " + btoa(username + ":" + password);
+
+            var response = await fetch('/cancel/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': auth
+                },
+                body: JSON.stringify({ 'url': url })
+            });
+
+            if (!response.ok) {
+                var data = await response.json();
+                alert('Could not cancel download: ' + data.detail);
+            } else {
+                var card = document.getElementById('card-' + url);
+                card.parentNode.removeChild(card);
+            }
+            console.log("Client: canceled: " + url);
+        }
+
+        async function startDownload() {
+            var url = document.getElementById('url').value;
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+            var auth = "Basic " + btoa(username + ":" + password);
+
+            if (document.getElementById('card-' + url)) {
+                alert('A download for this URL already exists.');
+                return;
+            }
+
+            var filename = url.split("/").pop();
+            var response = await fetch('/file_exists/?filename=' + filename, {
+                headers: {
+                    'Authorization': auth
+                }
+            });
+            var data = await response.json();
+
+            if (data.exists) {
+                alert('A file with this name already exists.');
+                return;
+            }
+
+            createDownloadCard(url);
+
+            fetch('/download/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': auth
+                },
+                body: JSON.stringify({ url: url })
+            });
+            console.log("Client: started: " + url);
+        }
+
+        function createDownloadCard(url, completed = false) {
+            if (document.getElementById('card-' + url)) {
+                return;
+            }
+            var card = document.createElement('div');
+            card.id = 'card-' + url;
+            card.className = 'downloadCard bg-white shadow rounded-lg p-5 mb-4 relative ml-auto mr-auto';
+
+
+            var closeButton = document.createElement('button');
+            closeButton.className = 'absolute top-1 right-1 p-2';
+            closeButton.style.display = 'none';
+            closeButton.innerHTML = '&times;';
+            closeButton.addEventListener('click', function () {
+                cancelDownload(url);
+            });
+            card.appendChild(closeButton);
+            card.closeButton = closeButton;
+
+            var cancelButton = document.createElement('button');
+            cancelButton.className = 'text-red-500 absolute top-1 right-1 p-2';
+            cancelButton.innerHTML = '&times;';
+            cancelButton.addEventListener('click', function () {
+                cancelDownload(url);
+            });
+            card.appendChild(cancelButton);
+            card.cancelButton = cancelButton;
+
+            var urlElement = document.createElement('a');
+            urlElement.className = 'text-black font-bold mb-2 overflow-auto';
+            urlElement.href = url;
+            urlElement.innerText = url;
+            card.appendChild(urlElement);
+
+            var flexContainer = document.createElement('div');
+            flexContainer.className = 'flex items-center';
+
+            var percentageElement = document.createElement('p');
+            percentageElement.id = 'percentage-' + url;
+            percentageElement.innerText = '0%';
+            percentageElement.className = 'mr-2';
+            flexContainer.appendChild(percentageElement);
+
+            var progressBarContainer = document.createElement('div');
+            progressBarContainer.className = 'h-2 w-full bg-gray-200 rounded-full';
+            var progressBar = document.createElement('div');
+            progressBar.id = 'progress-' + url;
+            progressBar.className = 'h-2 bg-blue-500 rounded-full';
+            progressBar.style.width = '0%';
+            progressBarContainer.appendChild(progressBar);
+            flexContainer.appendChild(progressBarContainer);
+
+            card.appendChild(flexContainer);
+
+            if (completed) {
+                percentageElement.style.display = 'none';
+                progressBar.parentElement.style.display = 'none';
+                closeButton.style.display = 'block';
+                cancelButton.style.display = 'none';
+            }
+            document.getElementById('downloads').appendChild(card);
+        }
+    </script>
+</head>
+
+<body class="bg-gray-200 py-10">
+    <div class="container mx-auto max-w-5xl px-20">
+        <div class="mb-5 flex space-x-2">
+            <input id="username" class="flex-grow p-2 rounded shadow h-10 w-full sm:w-auto" type="text"
+                placeholder="Enter Username">
+            <input id="password" class="flex-grow p-2 rounded shadow h-10 w-full sm:w-auto" type="password"
+                placeholder="Enter Password">
+            <button onclick="init()"
+                class="bg-blue-300 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded h-10 min-w-max sm:w-auto sm:ml-2">Login</button>
+        </div>
+        <div class="mb-5 flex space-x-2">
+            <input id="url" class="flex-grow p-2 rounded shadow h-10 w-full sm:w-auto" type="text"
+                placeholder="Enter URL">
+            <button onclick="startDownload()"
+                class="bg-blue-300 hover:bg-blue-400 text-white font-bold py-2 px-4 rounded h-10 min-w-max sm:w-auto sm:ml-2">⬇</button>
+        </div>
+        <div id="downloads"></div>
+    </div>
+</body>
+
+</html>
