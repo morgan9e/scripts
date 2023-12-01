@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+# CoolSMS (https://coolsms.co.kr/)
+
+import requests, time, datetime, uuid, hmac, hashlib, os, sys
+
+coolsms = **
+
+try:
+    API_KEY = coolsms[0:2]
+    SENDER = coolsms[2]
+except:
+    try:
+        import secrets
+        API_KEY = secrets.coolsms[0:2]
+        SENDER = secrets.coolsms[2]
+    except (ImportError, AttributeError):
+        API_KEY = (os.environ.get('COOLSMS_API_KEY'), os.environ.get('COOLSMS_ACCESS_KEY'))
+        SENDER = os.environ.get('COOLSMS_SENDER')
+        if (API_KEY == (None, None) or (SENDER == None)):
+            print("Error: No API Key provided.\nSet env COOLSMS_API_KEY, COOLSMS_ACCESS_KEY, COOLSMS_SENDER.")
+            sys.exit()
+
+assert API_KEY        
+
+def get_signature(key=str(), msg=str()):
+    return hmac.new(key.encode(), msg.encode(), hashlib.sha256).hexdigest()
+
+def get_headers(api_key='', api_secret_key=''):
+    utc_offset_sec = time.altzone if time.localtime().tm_isdst else time.timezone
+    utc_offset = datetime.timedelta(seconds=-utc_offset_sec)
+    iso_datetime = datetime.datetime.now().replace(tzinfo=datetime.timezone(offset=utc_offset)).isoformat()
+    date = iso_datetime
+    salt = str(uuid.uuid1().hex)
+    data = date + salt
+    return {
+        'Authorization': 'HMAC-SHA256 ApiKey=' + api_key + ', Date=' + date + ', salt=' + salt + ', signature=' +
+                         get_signature(api_secret_key, data),
+        'Content-Type': 'application/json; charset=utf-8'
+    }
+
+def send_raw(data):
+    api_key, api_secret = API_KEY
+    data['agent'] = {'sdkVersion': 'python/4.2.0', 'osPlatform': 'Windows-10-10.0.22621-SP0 | 3.11.0'}
+    return requests.post('https://api.coolsms.co.kr/messages/v4/send', headers=get_headers(api_key, api_secret), json=data)
+
+def send_lms(msg: str, title = "", receiver: str = SENDER):
+    assert str(receiver) == receiver
+    msg_data = {
+                "message": {
+                    'to': receiver,
+                    'from': SENDER,
+                    'text': msg
+                    }
+                }
+    if title:
+        msg_data["message"]["subject"] = title
+
+    return send_raw(msg_data)
+
+if __name__=="__main__":
+    if len(sys.argv) != 3 and len(sys.argv) != 4:
+        print(f"Usage: {str(sys.argv[0]).split('/')[-1]} [receiver] [message] (title)")
+        sys.exit()
+    if len(sys.argv) == 3:
+        title = ""
+    else:
+        title = sys.argv[3]
+
+    if send_lms(sys.argv[2], title, sys.argv[1]).status_code == 200:
+        print(f"Sent \"{sys.argv[2]}\" to {sys.argv[1]}.")
+
