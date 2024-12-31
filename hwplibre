@@ -1,0 +1,8 @@
+#!/bin/bash
+bef=$1
+aft=${bef%.*}.odt
+
+zenity --info --text="Converting $bef to $aft.";
+eval "~/.python38/bin/hwp5odt \"$bef\" --output \"$aft\""
+
+eval "libreoffice --writer \"$aft\""

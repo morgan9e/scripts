@@ -1,0 +1,47 @@
+#!/bin/bash
+
+cleanup () {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Netwatch exited. ($$)" | tee -a /var/log/netwatch.log;
+    rm /var/.netwatch.lock
+}
+
+if [ -f /var/.netwatch.lock ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Netwatch already running. ($$)" | tee -a /var/log/netwatch.log;
+    exit;
+fi
+
+trap cleanup EXIT
+
+FAIL=0
+RELOADED=0
+
+if [ ! -f /var/.netwatch.lock ]; then
+    touch /var/.netwatch.lock
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Netwatch started ($$)" | tee -a /var/log/netwatch.log;
+
+    while true; do
+        if [ $FAIL -gt 20 ]; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Netwatch triggered ($$) - $FAIL" | tee -a /var/log/netwatch.log;
+            if [ $RELOADED == 1 ]; then
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] Netwatch triggered ($$) - $FAIL - HARD RESET" | tee -a /var/log/netwatch.log;
+                reboot;
+            fi
+            systemctl restart networking
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] $(systemctl status networking; ip a;)" | tee -a /var/log/netwatch.log;
+            FAIL=0
+            RELOADED=1
+        fi
+
+        curl -s https://ping.api.morgan.kr/ >/dev/null && FAIL=0 || FAIL=$(($FAIL+1))
+        ping 1.1.1.1 -c 1 -w 1 >/dev/null && FAIL=0 || FAIL=$(($FAIL+1))
+
+        if [ $FAIL -ne 0 ]; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Netwatch failed ($$) - $FAIL" | tee -a /var/log/netwatch.log;
+        else
+            RELOADED=0
+        fi
+
+        sleep 60
+    done
+fi

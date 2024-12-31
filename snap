@@ -1,0 +1,27 @@
+#!/bin/bash
+
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root."
+  exit
+fi
+
+TIME=$(date +%Y_%m_%d-%H_%M)
+
+echo $TIME > /SNAPSHOT
+echo $TIME > /home/SNAPSHOT
+
+mkdir /tmp/btrfsnap-$TIME
+
+mount $(findmnt / -no SOURCE | cut -d '[' -f 1) /tmp/btrfsnap-$TIME
+
+btrfs subvol snap -r /tmp/btrfsnap-$TIME/@root /tmp/btrfsnap-$TIME/@snapshots/@root-$TIME
+
+btrfs subvol snap -r /tmp/btrfsnap-$TIME/@home /tmp/btrfsnap-$TIME/@snapshots/@home-$TIME
+
+umount /tmp/btrfsnap-$TIME
+
+rmdir /tmp/btrfsnap-$TIME
+
+rm /SNAPSHOT
+
+rm /home/SNAPSHOT

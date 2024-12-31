@@ -1,0 +1,48 @@
+#!/bin/bash
+
+CURRENT=$(pwd)
+WORKDIR=$(mktemp -d)
+
+cd $WORKDIR
+
+M3U8="$1"
+NAME="$2"
+
+curl "$M3U8" > PLAYLIST
+
+touch MONITOR
+
+{ 
+    cat PLAYLIST | \
+    grep -v '^#.*' | \
+    xargs -P 100 -I {} bash -c 'FN=$(echo "{}" | sha1sum | cut -d" " -f1); if [ ! -f $FN ]; then curl "{}" -s --output $FN; fi; echo .';
+    rm MONITOR; 
+} > MONITOR &
+
+echo DOWNLOADING
+
+TOTAL=$(cat PLAYLIST | grep -v '^#' | wc -l)
+
+while [ -f MONITOR ]; do
+    echo $(cat MONITOR | wc -l)/$TOTAL
+    sleep 1;
+done
+
+wait
+
+echo DONE
+
+for i in $(<PLAYLIST); do 
+    { echo $i | grep -v '^#' > /dev/null; } \
+    && { 
+        FN=$(echo $i | sha1sum | cut -d" " -f1); 
+        echo $FN; 
+    } \
+    || echo $i;
+done > MODIFIED_PLAYLIST.m3u8
+
+ffmpeg -allowed_extensions ALL -extension_picky 0 -i MODIFIED_PLAYLIST.m3u8 -c copy $CURRENT/$NAME
+
+cd $CURRENT
+
+rm -r $WORKDIR

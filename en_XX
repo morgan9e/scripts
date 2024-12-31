@@ -1,0 +1,108 @@
+comment_char %
+escape_char /
+
+LC_IDENTIFICATION
+title      "English International"
+source     ""
+address    ""
+contact    ""
+email      ""
+tel        ""
+fax        ""
+language   ""
+territory  ""
+revision   ""
+date       ""
+category  "i18n:2012";LC_IDENTIFICATION
+category  "i18n:2012";LC_CTYPE
+category  "i18n:2012";LC_COLLATE
+category  "i18n:2012";LC_TIME
+category  "i18n:2012";LC_NUMERIC
+category  "i18n:2012";LC_MONETARY
+category  "i18n:2012";LC_MESSAGES
+category  "i18n:2012";LC_PAPER
+category  "i18n:2012";LC_NAME
+category  "i18n:2012";LC_ADDRESS
+category  "i18n:2012";LC_TELEPHONE
+category  "i18n:2012";LC_MEASUREMENT
+END LC_IDENTIFICATION
+
+LC_CTYPE
+copy "en_US"
+END LC_CTYPE
+
+LC_COLLATE
+copy "iso14651_t1"
+END LC_COLLATE
+
+LC_MONETARY
+int_curr_symbol         ""
+currency_symbol         ""
+mon_decimal_point       ","
+mon_thousands_sep       " "
+mon_grouping            3
+positive_sign           ""
+negative_sign           "-"
+int_frac_digits         2
+frac_digits             2
+p_cs_precedes           1
+p_sep_by_space          0
+n_cs_precedes           1
+n_sep_by_space          0
+p_sign_posn             1
+n_sign_posn             1
+END LC_MONETARY
+
+LC_NUMERIC
+decimal_point           ","
+thousands_sep           " "
+grouping                3
+END LC_NUMERIC
+
+LC_TIME
+abday           "Sun";"Mon";"Tue";"Wed";"Thu";"Fri";"Sat"
+day             "Sunday";"Monday";"Tuesday";"Wednesday";"Thursday";/
+                "Friday";"Saturday"
+abmon           "Jan";"Feb";"Mar";"Apr";"May";"Jun";"Jul";"Aug";"Sep";/
+                "Oct";"Nov";"Dec"
+mon             "January";"February";"March";"April";"May";"June";"July";/
+                "August";"September";"October";"November";"December"
+week            7;19971130;4
+first_weekday   1
+first_workday   2
+d_t_fmt         "%a %Y-%m-%d %H:%M:%S"
+d_fmt           "%Y-%m-%d"
+t_fmt           "%H:%M:%S"
+t_fmt_ampm      ""
+am_pm           "";""
+date_fmt        "%a %Y-%m-%d %H:%M:%S %Z"
+END LC_TIME
+
+
+LC_MESSAGES
+yesexpr "^[yY]"
+noexpr  "^[nN]"
+yesstr  ""
+nostr   ""
+END LC_MESSAGES
+
+LC_PAPER
+height   297
+width    210
+END LC_PAPER
+
+LC_NAME
+name_fmt    "%p%t%g%t%m%t%f"
+END LC_NAME
+
+LC_ADDRESS
+postal_fmt    "%a%N%f%N%d%N%b%N%s %h %e %r%N%C-%z %T%N%c%N"
+END LC_ADDRESS
+
+LC_TELEPHONE
+tel_int_fmt    "+%c %a%t%l"
+END LC_TELEPHONE
+
+LC_MEASUREMENT
+measurement 1
+END LC_MEASUREMENT

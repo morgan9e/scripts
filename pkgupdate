@@ -1,0 +1,131 @@
+#!/bin/bash
+
+PKGS=()
+
+update_librewolf () {
+    PKGNAME="librewolf"
+    TMPDIR="$(mktemp -d)"
+    PWD=$(pwd)
+
+    echo "[*] Updating $PKGNAME..."
+    echo "[*] - Entering $TMPDIR"
+    cd $TMPDIR
+
+    URL=$(curl -L https://gitlab.com/api/v4/projects/44042130/releases/permalink/latest | jq -r '.assets.links[] | select(.name | test("^librewolf-[0-9\\.-]+-linux-x86_64-package\\.tar\\.xz$")) | .url')
+    
+    echo "[*] - Downloading from $URL"
+    curl "$URL" -o librewolf.tar.xz
+    
+    echo "[*] - Extracting..."
+    sudo tar -xvf librewolf.tar.xz >> log
+
+    echo "[*] - Installing..."
+    sudo cp -r /opt/librewolf ./previous
+    sudo rsync -avx librewolf/ /opt/librewolf/  >> log
+
+    echo "[*] - Running post-script..."
+    sudo chown root:root /opt/librewolf/ /opt/librewolf/librewolf
+
+    echo "[*] - Done!"
+    cd $PWD
+}
+
+update_1password () {
+    PKGNAME="1Password"
+    TMPDIR="$(mktemp -d)"
+    PWD=$(pwd)
+    
+    echo "[*] Updating $PKGNAME..."
+    echo "[*] - Entering $TMPDIR"
+    cd $TMPDIR
+    
+    URL="https://downloads.1password.com/linux/tar/stable/x86_64/1password-latest.tar.gz"
+    
+    echo "[*] - Downloading from $URL"
+    curl "$URL" -o 1password-latest.tar.gz 
+    
+    echo "[*] - Extracting..."
+    sudo tar -xvf 1password-latest.tar.gz >> log
+    
+    echo "[*] - Installing..."
+    sudo cp -r /opt/1Password ./.previous
+    sudo rsync -avx 1password-*/ /opt/1Password/ >> log
+    
+    echo "[*] - Running post-script..."
+    sudo /opt/1Password/after-install.sh >> log
+
+    echo "[*] - Done!"
+    cd $PWD
+}
+
+update_ungoogled_chromium () {
+    PKGNAME="ungoogled-chromium"
+    TMPDIR="$(mktemp -d)"
+    PWD=$(pwd)
+    PROJ_URL="https://api.github.com/repos/ungoogled-software/ungoogled-chromium-portablelinux/releases/latest"
+    URL=$(curl $PROJ_URL | jq -r '.assets.[] | select(.name | endswith(".tar.xz")) | .browser_download_url')
+
+    download () {
+        curl -L "$URL" -o package.tar.xz
+    }
+
+    extract () {
+        sudo tar -xvf package.tar.xz >> log
+    }
+
+    install () {
+        mv ./ungoogled-chromium_* ./NEW
+        sudo mv /opt/ungoogled-chromium/ ./PREV/
+        sudo mv ./NEW /opt/ungoogled-chromium/ | tee log
+    }
+
+    postscript () {
+        sudo chown root:root /opt/ungoogled-chromium/ /opt/ungoogled-chromium/chrome
+        sudo bash -c 'bash <(curl https://raw.githubusercontent.com/morgan9e/chrome-blank-newtab/refs/heads/main/patch.sh) /opt/ungoogled-chromium/resources.pak'
+    }
+
+    echo "[*] Updating $PKGNAME..."
+    echo "[*] - Entering $TMPDIR"
+    cd $TMPDIR
+    echo "[*] - Downloading from $URL"
+    download
+    echo "[*] - Extracting..."
+    extract
+    echo "[*] - Installing..."
+    install
+    echo "[*] - Running post-script..."
+    postscript
+    echo "[*] - Done!"
+    cd $PWD
+}
+
+
+PKGS+=("librewolf")
+PKGS+=("1password")
+PKGS+=("ungoogled_chromium")
+
+# main
+
+if [[ "$1" == "list" ]]; then
+    echo "${PKGS[*]}"
+    exit 0
+elif [[ -z "$1" ]]; then
+    echo "Usage: $(basename $0) [package_name | all | list]"
+    echo "Available: ${PKGS[*]}"
+    exit 1
+fi
+
+if [ "$EUID" -ne 0 ]; then
+    sudo "$0" "$@"
+    exit $?
+fi
+
+if [[ "$1" == "all" ]]; then
+    for pkg in "${PKGS[@]}"; do
+        "update_$pkg"
+    done
+elif [[ -n "$1" ]]; then
+    "update_$1"
+fi
+
+exit 0

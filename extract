@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Archive eXtractor
+
+error() {
+    echo "Error: $1" >&2
+}
+
+run() {
+    echo "Debug: $@"
+    $@
+}
+
+if [ ! -f "$1" ]; then 
+    error "No file provided"
+    exit 1
+fi
+
+BN="${1%.*}"
+BASE="${1%.*}"
+TRY=0
+
+while [ -d "$BASE" ]; do
+    if [ $TRY -gt 10 ]; then
+        error "Already Exists (10)"
+        exit 1
+    fi
+    error "Already exists ($BASE)"
+    TRY=$((TRY + 1))
+    BASE="${BN}_${TRY}"
+done
+
+FILE_TYPE=$(file --mime-type -b "$1")
+EXT="${1##*.}"
+
+case "$FILE_TYPE" in
+    application/x-tar) FORMAT="tar" ;;
+    application/zip) FORMAT="zip" ;;
+    application/x-7z-compressed) FORMAT="7z" ;;
+    *)
+        case "$EXT" in
+            tar.gz|tar.bz2|tar.xz|tar.zst|tgz|tbz2|txz) FORMAT="tar" ;;
+            gz) FORMAT="gzip" ;;
+            bz2) FORMAT="bzip2" ;;
+            xz) FORMAT="xz" ;;
+            *)
+                error "Unsupported file format"
+                exit 1
+                ;;
+        esac
+        ;;
+esac
+
+run mkdir "$BASE"
+
+case $FORMAT in
+    tar)
+        run tar -xvf "$1" -C "$BASE"
+        ;;
+    zip)
+        run unzip "$1" -d "$BASE"
+        ;;
+    7z)
+        run 7z x "$1" -o"$BASE"
+        ;;
+    gzip)
+        run gunzip -c "$1" > "$BASE/$(basename "$BN")"
+        ;;
+    bzip2)
+        run bunzip2 -c "$1" > "$BASE/$(basename "$BN")"
+        ;;
+    xz)
+        run unxz -c "$1" > "$BASE/$(basename "$BN")"
+        ;;
+    *)
+        error "Unexpected error occurred"
+        exit 1
+        ;;
+esac
